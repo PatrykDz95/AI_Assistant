@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: aiassistant
+
+  autoconfigure:
+    exclude:
+      - dev.langchain4j.ollama.spring.AutoConfig
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aiassistant
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# LangChain4j Ollama Configuration (used by our manual config)
+langchain4j:
+  ollama:
+    # Chat Model (for AI Agent with Tools) - using smaller model for better performance
+    chat-model:
+      base-url: http://localhost:11434
+      model-name: qwen2.5:1.5b  # Smaller model (600MB vs 2.5GB) - better for Mac
+      temperature: 0.7
+      timeout: 120s
+
+    # Embedding Model (for PgVector RAG)
+    embedding-model:
+      base-url: http://localhost:11434
+      model-name: nomic-embed-text
+      timeout: 60s

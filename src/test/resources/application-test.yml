@@ -1,0 +1,27 @@
+# Test configuration - disables external dependencies
+spring:
+  application:
+    name: aiassistant-test
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aiassistant_test
+    username: postgres
+    password: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+# Disable RAG ingestion during tests
+rag:
+  ingestion:
+    enabled: false
+
+# Disable LangChain4j auto-configuration
+langchain4j:
+  ollama:
+    chat-model:
+      enabled: false
+    embedding-model:
+      enabled: false
