@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ChatApplicationService
+public class QuestionAnsweringService
 {
     private final AiReasoningPort aiAgent;
 
@@ -20,11 +20,10 @@ public class ChatApplicationService
         try
         {
             return aiAgent.answer(question);
-
         }
         catch (Exception e)
         {
-            log.error("Error handling question: {}", question.value(), e);
+            log.error("Error handling question: [{}]", question.value(), e);
             return new AssistantAnswer("I apologize, but I encountered an error: " + e.getMessage());
         }
     }

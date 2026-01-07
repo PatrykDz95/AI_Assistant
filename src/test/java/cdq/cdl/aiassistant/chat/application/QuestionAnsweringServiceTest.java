@@ -15,17 +15,17 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class ChatApplicationServiceTest
+class QuestionAnsweringServiceTest
 {
     @Mock
     private AiReasoningPort aiAgent;
 
-    private ChatApplicationService service;
+    private QuestionAnsweringService service;
 
     @BeforeEach
     void setUp()
     {
-        service = new ChatApplicationService(aiAgent);
+        service = new QuestionAnsweringService(aiAgent);
     }
 
     @Test

@@ -4,14 +4,14 @@ import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 import cdq.cdl.aiassistant.chat.domain.port.ProductKnowledgePort;
+import dev.langchain4j.data.document.Document;
+import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -25,7 +25,7 @@ class PgVectorProductKnowledgeAdapterIT
     private ProductKnowledgePort knowledgePort;
 
     @Autowired
-    private VectorStore vectorStore;
+    private EmbeddingStoreIngestor ingestor;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -33,18 +33,17 @@ class PgVectorProductKnowledgeAdapterIT
     @BeforeEach
     void setUp()
     {
-        // Clear vector store before each test for proper isolation
-        jdbcTemplate.execute("TRUNCATE TABLE vector_store");
+        jdbcTemplate.execute("TRUNCATE TABLE cdq_product_knowledge");
     }
 
     @Test
     void shouldReturnNonEmptyResultWhenVectorStoreHasContent()
     {
         // Given
-        vectorStore.add(List.of(
-                new Document("CDQ Fraud Guard is an AML solution for detecting money laundering."),
-                new Document("The system monitors transactions in real-time for suspicious activity."),
-                new Document("Compliance with global AML regulations is automated.")
+        ingestor.ingest(List.of(
+                Document.from("CDQ Fraud Guard is an AML solution for detecting money laundering."),
+                Document.from("The system monitors transactions in real-time for suspicious activity."),
+                Document.from("Compliance with global AML regulations is automated.")
         ));
 
         // When
@@ -59,9 +58,9 @@ class PgVectorProductKnowledgeAdapterIT
     void shouldReturnValidResultWhenSearching()
     {
         // Given
-        vectorStore.add(List.of(
-                new Document("Anti-Money Laundering (AML) solutions help prevent financial crimes."),
-                new Document("Risk assessment tools for compliance.")
+        ingestor.ingest(List.of(
+                Document.from("Anti-Money Laundering (AML) solutions help prevent financial crimes."),
+                Document.from("Risk assessment tools for compliance.")
         ));
 
         // When
@@ -76,12 +75,12 @@ class PgVectorProductKnowledgeAdapterIT
     @Test
     void shouldHandleEmptySearchResults()
     {
-        // Given - vector store is empty (cleared in setUp)
+        // Given vector store is empty
 
-        // When - search for something that doesn't exist
+        // When search for something that doesn't exist
         String result = knowledgePort.search("xyzabc123notfound");
 
-        // Then - should return the "not found" message
+        // Then
         assertThat(result)
                 .isNotNull()
                 .isEqualTo("No relevant information found");
@@ -90,16 +89,16 @@ class PgVectorProductKnowledgeAdapterIT
     @Test
     void shouldHandleDocumentRetrievalGracefully()
     {
-        // Given - add some documents
-        vectorStore.add(List.of(
-                new Document("Test document about machine learning"),
-                new Document("Another test about artificial intelligence")
+        // Given
+        ingestor.ingest(List.of(
+                Document.from("Test document about machine learning"),
+                Document.from("Another test about artificial intelligence")
         ));
 
-        // When - search for documents
+        // When
         String result = knowledgePort.search("test");
 
-        // Then - should return valid result (document content or not found message)
+        // Then should return valid result
         assertThat(result)
                 .isNotNull()
                 .isNotEmpty();

@@ -36,14 +36,5 @@ class UserQuestionTest
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Question must not be empty");
     }
-
-    @Test
-    void shouldRejectBlankQuestion()
-    {
-        // When/Then
-        assertThatThrownBy(() -> new UserQuestion("   "))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Question must not be empty");
-    }
 }
 

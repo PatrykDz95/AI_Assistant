@@ -7,7 +7,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import cdq.cdl.aiassistant.chat.application.ChatApplicationService;
+import cdq.cdl.aiassistant.chat.application.QuestionAnsweringService;
 import cdq.cdl.aiassistant.chat.domain.model.AssistantAnswer;
 import cdq.cdl.aiassistant.chat.domain.model.UserQuestion;
 
@@ -18,14 +18,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ChatController.class)
-class ChatControllerIT
+@WebMvcTest(ChatApi.class)
+class ChatApiIT
 {
     @Autowired
     private MockMvc mockMvc;
 
     @MockBean
-    private ChatApplicationService chatService;
+    private QuestionAnsweringService chatService;
 
     @Test
     void shouldReturnAnswerWhenValidQuestionProvided() throws Exception
@@ -41,7 +41,7 @@ class ChatControllerIT
         when(chatService.handle(any(UserQuestion.class))).thenReturn(expectedAnswer);
 
         // When/Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/api/chats")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk())
@@ -60,7 +60,7 @@ class ChatControllerIT
                 """;
 
         // When/Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/api/chats")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
@@ -73,7 +73,7 @@ class ChatControllerIT
         String requestBody = "{}";
 
         // When/Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/api/chats")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
@@ -86,7 +86,7 @@ class ChatControllerIT
         String requestBody = "invalid json";
 
         // When/Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/api/chats")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
@@ -106,7 +106,7 @@ class ChatControllerIT
                 .thenReturn(new AssistantAnswer("I apologize, but I encountered an error: Service unavailable"));
 
         // When/Then
-        mockMvc.perform(post("/api/chat")
+        mockMvc.perform(post("/api/chats")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk())

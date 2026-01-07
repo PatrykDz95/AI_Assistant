@@ -21,13 +21,13 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# LangChain4j Ollama Configuration (used by our manual config)
+# LangChain4j Ollama Configuration
 langchain4j:
   ollama:
     # Chat Model (for AI Agent with Tools) - using smaller model for better performance
     chat-model:
       base-url: http://localhost:11434
-      model-name: qwen2.5:1.5b  # Smaller model (600MB vs 2.5GB) - better for Mac
+      model-name: qwen2.5:1.5b  # Smaller model (600MB vs 2.5GB) - better for running locally
       temperature: 0.7
       timeout: 120s
 
@@ -36,3 +36,12 @@ langchain4j:
       base-url: http://localhost:11434
       model-name: nomic-embed-text
       timeout: 60s
+
+rag:
+  ingestion:
+    cdq-fraud-guard:
+      url: https://www.cdq.com/products/cdq-fraud-guard
+
+external-api:
+  rest-countries:
+    base-url: https://restcountries.com/v3.1

@@ -5,8 +5,10 @@ import java.io.IOException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.reactive.function.client.WebClient;
 
+import cdq.cdl.aiassistant.chat.domain.model.City;
+import cdq.cdl.aiassistant.chat.domain.model.CityInformation;
+import cdq.cdl.aiassistant.chat.domain.model.Country;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
@@ -24,8 +26,7 @@ class RestCountriesAdapterTest
         mockWebServer.start();
 
         String baseUrl = mockWebServer.url("/").toString();
-        WebClient webClient = WebClient.create(baseUrl);
-        adapter = new RestCountriesAdapter(webClient);
+        adapter = new RestCountriesAdapter(baseUrl);
     }
 
     @AfterEach
@@ -55,10 +56,10 @@ class RestCountriesAdapterTest
                 .addHeader("Content-Type", "application/json"));
 
         // When
-        String capital = adapter.capitalOf("Germany");
+        City capital = adapter.getCapitalOf(Country.of("Germany"));
 
         // Then
-        assertThat(capital).isEqualTo("Berlin");
+        assertThat(capital.name()).isEqualTo("Berlin");
     }
 
     @Test
@@ -82,10 +83,17 @@ class RestCountriesAdapterTest
                 .addHeader("Content-Type", "application/json"));
 
         // When
-        String info = adapter.aboutCity("Berlin");
+        CityInformation info = adapter.getCityInformation(City.of("Berlin"));
 
         // Then
-        assertThat(info)
+        assertThat(info.city().name()).isEqualTo("Berlin");
+        assertThat(info.country().name()).isEqualTo("Germany");
+        assertThat(info.region()).isEqualTo("Europe");
+        assertThat(info.population()).isEqualTo(83240525);
+        assertThat(info.currency()).isEqualTo("EUR");
+
+        String description = info.toDescription();
+        assertThat(description)
                 .contains("Berlin")
                 .contains("Germany")
                 .contains("Europe")
@@ -101,7 +109,7 @@ class RestCountriesAdapterTest
                 .addHeader("Content-Type", "application/json"));
 
         // When/Then
-        assertThatThrownBy(() -> adapter.capitalOf("NonExistentCountry"))
+        assertThatThrownBy(() -> adapter.getCapitalOf(Country.of("NonExistentCountry")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No country found with name: NonExistentCountry");
     }
@@ -115,7 +123,7 @@ class RestCountriesAdapterTest
                 .addHeader("Content-Type", "application/json"));
 
         // When/Then
-        assertThatThrownBy(() -> adapter.aboutCity("NonExistentCity"))
+        assertThatThrownBy(() -> adapter.getCityInformation(City.of("NonExistentCity")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No capital found with name: NonExistentCity");
     }

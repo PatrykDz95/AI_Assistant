@@ -6,15 +6,12 @@ import java.util.UUID;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 public class McpHttpClient
 {
     private final WebClient webClient;
-
-    public McpHttpClient(WebClient webClient)
-    {
-        this.webClient = webClient;
-    }
 
     public JsonNode callTool(String toolName, Map<String, Object> arguments)
     {

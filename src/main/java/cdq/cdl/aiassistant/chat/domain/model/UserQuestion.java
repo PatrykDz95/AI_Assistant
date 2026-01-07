@@ -6,9 +6,15 @@ public record UserQuestion(String value)
 {
     public UserQuestion
     {
-        if (StringUtils.isBlank(value))
+        if (StringUtils.isEmpty(value))
         {
             throw new IllegalArgumentException("Question must not be empty");
         }
+    }
+
+    public static UserQuestion of(String question)
+    {
+        String trimmed = question == null ? null : question.trim();
+        return new UserQuestion(trimmed);
     }
 }

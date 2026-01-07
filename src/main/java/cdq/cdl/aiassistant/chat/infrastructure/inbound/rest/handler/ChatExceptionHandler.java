@@ -16,7 +16,7 @@ public class ChatExceptionHandler
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex)
     {
-        log.warn("Invalid argument: {}", ex.getMessage());
+        log.warn("Invalid argument: [{}]", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(ex.getMessage()));
@@ -25,7 +25,7 @@ public class ChatExceptionHandler
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex)
     {
-        log.warn("Invalid JSON request: {}", ex.getMessage());
+        log.warn("Invalid JSON request: [{}]", ex.getMessage());
 
         Throwable cause = ex.getCause();
         while (cause != null)

@@ -11,4 +11,9 @@ public record AssistantAnswer(String value)
             throw new IllegalArgumentException("Answer must not be empty");
         }
     }
+
+    public static AssistantAnswer of(String answer)
+    {
+        return new AssistantAnswer(answer.trim());
+    }
 }

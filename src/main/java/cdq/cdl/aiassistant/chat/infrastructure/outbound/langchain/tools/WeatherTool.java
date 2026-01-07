@@ -2,6 +2,8 @@ package cdq.cdl.aiassistant.chat.infrastructure.outbound.langchain.tools;
 
 import org.springframework.stereotype.Component;
 
+import cdq.cdl.aiassistant.chat.domain.model.City;
+import cdq.cdl.aiassistant.chat.domain.model.Temperature;
 import cdq.cdl.aiassistant.chat.domain.port.WeatherPort;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
@@ -17,12 +19,12 @@ public class WeatherTool
     @Tool("Get the current temperature in Celsius for a given city")
     public double getCurrentTemperature(String cityName)
     {
-        log.info("[TOOL CALL] WeatherTool.getCurrentTemperature [{}]", cityName);
+        log.debug("Tool execution started: tool=getCurrentTemperature, query=[{}]", cityName);
 
-        double result = weatherPort.currentTemperatureCelsius(cityName);
+        Temperature temperature = weatherPort.getCurrentTemperature(City.of(cityName));
 
-        log.info("[TOOL RESULT] WeatherTool.getCurrentTemperature [{}°C])", result);
-        return result;
+        log.debug("Tool execution ended: tool=getCurrentTemperature, result=[{}°C]", temperature.celsius());
+        return temperature.celsius();
     }
 }
 

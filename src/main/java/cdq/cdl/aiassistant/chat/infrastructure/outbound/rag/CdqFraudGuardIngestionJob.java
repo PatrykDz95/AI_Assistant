@@ -5,12 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import dev.langchain4j.data.document.Document;
+import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,23 +21,31 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class CdqFraudGuardIngestionJob
 {
-    private static final String CDQ_FRAUD_GUARD_URL = "https://www.cdq.com/products/cdq-fraud-guard";
+    @Value("${rag.ingestion.cdq-fraud-guard.url}")
+    private String fraudGuardUrl;
 
-    private final VectorStore vectorStore;
+    private final EmbeddingStoreIngestor ingestor;
+    private final PgVectorIngestionHelper ingestionHelper;
 
     @PostConstruct
     void ingest()
     {
-        log.info("Starting CDQ Fraud Guard content ingestion from [{}]", CDQ_FRAUD_GUARD_URL);
+        if (ingestionHelper.tableExistsAndNotEmpty())
+        {
+            log.info("Vector table already exists and is not empty, skipping ingestion");
+            return;
+        }
+
+        log.info("Starting CDQ Fraud Guard content ingestion from [{}]", fraudGuardUrl);
 
         try
         {
-            Document doc = Jsoup.connect(CDQ_FRAUD_GUARD_URL)
+            org.jsoup.nodes.Document doc = Jsoup.connect(fraudGuardUrl)
                     .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
                     .timeout(10000)
                     .get();
 
-            List<org.springframework.ai.document.Document> documents = new ArrayList<>();
+            List<String> textChunks = new ArrayList<>();
 
             // Extract title and meta description
             String title = doc.title();
@@ -44,61 +53,137 @@ class CdqFraudGuardIngestionJob
 
             if (!title.isEmpty() && !metaDescription.isEmpty())
             {
-                documents.add(new org.springframework.ai.document.Document(
-                        title + "\n\n" + metaDescription
-                ));
+                textChunks.add("OVERVIEW: " + title + "\n\n" + metaDescription);
                 log.debug("Extracted title: [{}]", title);
             }
 
-            // Extract main content paragraphs
-            Elements paragraphs = doc.select("p");
-            StringBuilder contentBuilder = new StringBuilder();
+            // Remove header, navigation, footer, and other non-content elements
+            doc.select("header, nav, footer, .header, .navigation, .nav, .menu, .footer").remove();
+            doc.select("[role=navigation], [role=banner], [role=contentinfo]").remove();
+            doc.select(".cookie, .cookies, #cookie-banner, .gdpr").remove();
 
-            for (Element p : paragraphs)
+            // Target main content areas only
+            Elements mainContent = doc.select("main, article, .content, .main-content, [role=main]");
+
+            if (mainContent.isEmpty())
             {
-                String text = p.text().trim();
-                // Filter out short/empty paragraphs and navigation text
-                if (text.length() > 50 && !text.toLowerCase().contains("cookie"))
+                // Fallback but still exclude common non-content areas
+                mainContent = doc.select("body");
+                mainContent.select("header, nav, footer, aside, .sidebar").remove();
+                log.debug("Fallback to body element for content extraction (with filters)");
+            }
+
+            // Extract structured sections with headings + paragraphs (exclude nav-related sections)
+            Elements sections = mainContent.select("section:not([class*='nav']):not([class*='menu']), div[class*='section']:not([class*='nav']), div[class*='feature'], div[class*='block']");
+
+            for (Element section : sections)
+            {
+                String sectionText = extractSectionContent(section);
+                if (sectionText.length() > 100)
                 {
-                    contentBuilder.append(text).append("\n\n");
+                    textChunks.add(sectionText);
                 }
             }
 
-            // Split into chunks (max 500 chars per chunk for better retrieval)
-            String fullContent = contentBuilder.toString();
-            if (!fullContent.isEmpty())
+            // Fallback: extract all meaningful paragraphs if sections didn't work well
+            if (textChunks.size() < 5)
             {
-                List<String> chunks = splitIntoChunks(fullContent);
-                for (String chunk : chunks)
+                log.debug("Section extraction yielded few results, using paragraph fallback");
+                Elements paragraphs = mainContent.select("p");
+                StringBuilder content = new StringBuilder();
+
+                for (Element p : paragraphs)
                 {
-                    documents.add(new org.springframework.ai.document.Document(chunk));
+                    String text = p.text().trim();
+                    // More lenient filtering
+                    if (text.length() > 30 && isRelevantContent(text))
+                    {
+                        content.append(text).append("\n\n");
+                    }
                 }
-                log.debug("Extracted [{}] content chunks", chunks.size());
+
+                if (!content.isEmpty())
+                {
+                    textChunks.addAll(splitIntoChunks(content.toString()));
+                }
             }
 
-            // Extract headings with context
-            Elements headings = doc.select("h1, h2, h3");
+            // Extract lists (often contain key features and benefits)
+            Elements lists = mainContent.select("ul, ol");
+            for (Element list : lists)
+            {
+                StringBuilder listContent = new StringBuilder("KEY POINTS:\n");
+                Elements items = list.select("li");
+
+                for (Element item : items)
+                {
+                    String itemText = item.text().trim();
+                    if (itemText.length() > 10 && isRelevantContent(itemText))
+                    {
+                        listContent.append("• ").append(itemText).append("\n");
+                    }
+                }
+
+                if (listContent.length() > 50)
+                {
+                    textChunks.add(listContent.toString());
+                }
+            }
+
+            // Extract all headings with their full context
+            Elements headings = mainContent.select("h1, h2, h3, h4");
             for (Element heading : headings)
             {
                 String headingText = heading.text().trim();
-                if (headingText.length() > 10)
+                if (headingText.length() > 10 && isRelevantContent(headingText))
                 {
-                    Element nextElement = heading.nextElementSibling();
-                    String context = nextElement != null ? nextElement.text() : "";
+                    StringBuilder headingContext = new StringBuilder("SECTION: ")
+                            .append(headingText).append("\n\n");
 
-                    String combined = headingText + "\n" + context;
-                    if (combined.length() > 20)
+                    // Get all following siblings until next heading
+                    Element sibling = heading.nextElementSibling();
+                    int siblingCount = 0;
+
+                    while (sibling != null && siblingCount < 5)
                     {
-                        documents.add(new org.springframework.ai.document.Document(combined));
+                        if (sibling.tagName().matches("h[1-6]"))
+                        {
+                            break;
+                        }
+
+                        String siblingText = sibling.text().trim();
+                        if (siblingText.length() > 20 && isRelevantContent(siblingText))
+                        {
+                            headingContext.append(siblingText).append("\n");
+                        }
+
+                        sibling = sibling.nextElementSibling();
+                        siblingCount++;
+                    }
+
+                    if (headingContext.length() > 50)
+                    {
+                        textChunks.add(headingContext.toString());
                     }
                 }
             }
-            if (documents.isEmpty())
+
+            if (textChunks.isEmpty())
             {
                 log.warn("No content extracted from website");
             }
 
-            vectorStore.add(documents);
+            List<String> uniqueChunks = textChunks.stream()
+                    .map(String::trim)
+                    .filter(s -> s.length() > 50)
+                    .distinct()
+                    .toList();
+
+            List<Document> documents = uniqueChunks.stream()
+                    .map(Document::from)
+                    .toList();
+
+            ingestor.ingest(documents);
 
             log.info("Successfully ingested {} CDQ Fraud Guard documents into vector store", documents.size());
 
@@ -107,36 +192,77 @@ class CdqFraudGuardIngestionJob
         {
             log.error("Failed to scrape CDQ Fraud Guard page: {}. Using fallback content.", e.getMessage());
 
-            // Fallback: use static content
-            vectorStore.add(List.of(new org.springframework.ai.document.Document("""
+            Document fallbackDoc = Document.from("""
                     CDQ Fraud Guard is an AML (Anti-Money Laundering) solution that helps financial institutions
                     detect money laundering risks, monitor transactions, and ensure compliance with global regulations.
                     
                     Key features include real-time transaction monitoring, risk assessment, regulatory compliance automation,
                     and machine learning-based fraud detection.
-                    """)));
+                    """);
+            ingestor.ingest(fallbackDoc);
         }
+    }
+
+    private String extractSectionContent(Element section)
+    {
+        StringBuilder content = new StringBuilder();
+
+        // Get heading
+        Element heading = section.selectFirst("h1, h2, h3, h4");
+        if (heading != null)
+        {
+            content.append("SECTION: ").append(heading.text()).append("\n\n");
+        }
+
+        // Get all paragraphs in this section
+        Elements paragraphs = section.select("p");
+        for (Element p : paragraphs)
+        {
+            String text = p.text().trim();
+            if (text.length() > 20 && isRelevantContent(text))
+            {
+                content.append(text).append("\n");
+            }
+        }
+
+        return content.toString().trim();
+    }
+
+    private boolean isRelevantContent(String text)
+    {
+        String lower = text.toLowerCase();
+
+        // Filter out navigation, menu, and boilerplate text
+        return !lower.contains("cookie")
+                && !lower.contains("accept all")
+                && !lower.contains("privacy policy")
+                && !lower.contains("terms of service")
+                && !lower.contains("© 20")
+                && !lower.contains("all rights reserved")
+                && !lower.contains("sign in")
+                && !lower.contains("log in")
+                && !lower.contains("login")
+                && !lower.contains("register")
+                && !lower.contains("subscribe")
+                && !lower.contains("newsletter")
+                && !lower.contains("contact us")
+                && !lower.contains("get in touch")
+                && !lower.contains("request demo")
+                && !lower.contains("follow us")
+                && !lower.contains("social media")
+                && !lower.matches("^(home|about|about us|contact|products|services|solutions|careers|blog|company|resources|support|platform|news|events|industries)$")
+                && !lower.matches(".*\\(opens in new (window|tab)\\).*");
     }
 
     private List<String> splitIntoChunks(String text)
     {
         List<String> chunks = new ArrayList<>();
-        String[] sentences = text.split("\\. ");
+        int maxLength = 600;
 
-        StringBuilder currentChunk = new StringBuilder();
-        for (String sentence : sentences)
+        for (int i = 0; i < text.length(); i += maxLength)
         {
-            if (currentChunk.length() + sentence.length() > 500 && !currentChunk.isEmpty())
-            {
-                chunks.add(currentChunk.toString().trim());
-                currentChunk = new StringBuilder();
-            }
-            currentChunk.append(sentence).append(". ");
-        }
-
-        if (!currentChunk.isEmpty())
-        {
-            chunks.add(currentChunk.toString().trim());
+            int end = Math.min(i + maxLength, text.length());
+            chunks.add(text.substring(i, end).trim());
         }
 
         return chunks;

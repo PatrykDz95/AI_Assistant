@@ -1,8 +1,12 @@
 package cdq.cdl.aiassistant.chat.domain.port;
 
+import cdq.cdl.aiassistant.chat.domain.model.City;
+import cdq.cdl.aiassistant.chat.domain.model.CityInformation;
+import cdq.cdl.aiassistant.chat.domain.model.Country;
+
 public interface CountriesPort
 {
-    String capitalOf(String country);
+    City getCapitalOf(Country country);
 
-    String aboutCity(String city);
+    CityInformation getCityInformation(City city);
 }

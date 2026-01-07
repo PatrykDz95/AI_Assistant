@@ -2,6 +2,9 @@ package cdq.cdl.aiassistant.chat.infrastructure.outbound.langchain.tools;
 
 import org.springframework.stereotype.Component;
 
+import cdq.cdl.aiassistant.chat.domain.model.City;
+import cdq.cdl.aiassistant.chat.domain.model.CityInformation;
+import cdq.cdl.aiassistant.chat.domain.model.Country;
 import cdq.cdl.aiassistant.chat.domain.port.CountriesPort;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
@@ -14,26 +17,27 @@ public class GeographyTool
 {
     private final CountriesPort countriesPort;
 
-    @Tool("Get the capital city of a given country")
+    @Tool("Get the capital city of a given countryName")
     public String getCapitalCity(String countryName)
     {
-        log.info("[TOOL CALL] GeographyTool.getCapitalCity [{}]", countryName);
+        log.debug("Tool execution started: tool=getCapitalCity, query=[{}]", countryName);
 
-        String result = countriesPort.capitalOf(countryName);
+        City capital = countriesPort.getCapitalOf(Country.of(countryName));
 
-        log.info("[TOOL RESULT] GeographyTool.getCapitalCity [{}]", result);
-        return result;
+        log.debug("Tool execution ended: tool=getCapitalCity, result=[{}]", capital.name());
+        return capital.name();
     }
 
-    @Tool("Get detailed information about a city (works for capital cities)")
+    @Tool("Get detailed information about the given cityName")
     public String getCityInformation(String cityName)
     {
-        log.info("[TOOL CALL] GeographyTool.getCityInformation [{}]", cityName);
+        log.debug("Tool execution started: tool=getCityInformation, query=[{}]", cityName);
 
-        String result = countriesPort.aboutCity(cityName);
+        CityInformation info = countriesPort.getCityInformation(City.of(cityName));
+        String description = info.toDescription();
 
-        log.info("[TOOL RESULT] GeographyTool.getCityInformation [{}]", result);
-        return result;
+        log.debug("Tool execution ended: tool=getCityInformation, result=[{}]", description);
+        return description;
     }
 }
 
