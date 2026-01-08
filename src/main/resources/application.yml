@@ -35,7 +35,7 @@ langchain4j:
     embedding-model:
       base-url: http://localhost:11434
       model-name: nomic-embed-text
-      timeout: 60s
+      timeout: 120s
 
 rag:
   ingestion:

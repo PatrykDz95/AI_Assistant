@@ -22,7 +22,7 @@ public class LangChain4jConfig
             @Value("${langchain4j.ollama.chat-model.base-url:http://localhost:11434}") String baseUrl,
             @Value("${langchain4j.ollama.chat-model.model-name:qwen2.5:1.5b}") String modelName,
             @Value("${langchain4j.ollama.chat-model.temperature:0.7}") Double temperature,
-            @Value("${langchain4j.ollama.chat-model.timeout:60s}") Duration timeout)
+            @Value("${langchain4j.ollama.chat-model.timeout:120s}") Duration timeout)
     {
         return OllamaChatModel.builder()
                 .baseUrl(baseUrl)

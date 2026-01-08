@@ -22,7 +22,7 @@ public class PgVectorStoreConfig
     public EmbeddingModel embeddingModel(
             @Value("${langchain4j.ollama.embedding-model.base-url:http://localhost:11434}") String baseUrl,
             @Value("${langchain4j.ollama.embedding-model.model-name:nomic-embed-text}") String modelName,
-            @Value("${langchain4j.ollama.embedding-model.timeout:180s}") Duration timeout)
+            @Value("${langchain4j.ollama.embedding-model.timeout:120s}") Duration timeout)
     {
         return OllamaEmbeddingModel.builder()
                 .baseUrl(baseUrl)
