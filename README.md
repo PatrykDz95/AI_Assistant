@@ -38,6 +38,7 @@ The system follows a Domain-Driven Design (DDD) architecture with hexagonal arch
 
 ## Prerequisites
 
+- **Python**  (for MCP server)
 - **Java 21** (JDK 21 or higher)
 - **Docker** (for running PostgreSQL, Ollama, and pgAdmin)
 - **Gradle** (wrapper included in project)
