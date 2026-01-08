@@ -103,14 +103,63 @@ fi
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
     echo -e "${YELLOW} Creating Python virtual environment...${NC}"
-    python3 -m venv .venv
+
+    # Find a usable python executable (try python3, python, then py -3)
+    PYTHON_CMD=""
+    if command -v python3 >/dev/null 2>&1; then
+        PYTHON_CMD=python3
+    elif command -v python >/dev/null 2>&1; then
+        PYTHON_CMD=python
+    elif command -v py >/dev/null 2>&1; then
+        # Use the Windows Python launcher with -3 to prefer Python 3
+        PYTHON_CMD="py -3"
+    fi
+
+    if [ -z "$PYTHON_CMD" ]; then
+        echo -e "${RED} Python 3 is not installed or not found in PATH.${NC}"
+        echo -e "${YELLOW} Please install Python 3 and re-run this script. On Windows, check 'Add Python to PATH' during installation.${NC}"
+        exit 1
+    fi
+
+    # Create venv using the discovered python command
+    eval "$PYTHON_CMD -m venv .venv"
 fi
 
 # Activate virtual environment and install dependencies
 echo -e "${YELLOW} Installing Python dependencies...${NC}"
-source .venv/bin/activate
-pip install -q --upgrade pip
-pip install -q fastapi uvicorn httpx python-dotenv
+# Support both Unix-style and Windows-style venv layouts
+if [ -f ".venv/bin/activate" ]; then
+    # Unix-like (Linux, macOS)
+    source .venv/bin/activate
+elif [ -f ".venv/Scripts/activate" ]; then
+    # Git Bash / MSYS on Windows provides a POSIX-style shell and the venv includes a Scripts/activate
+    source .venv/Scripts/activate
+else
+    echo -e "${YELLOW} Virtual environment activation script not found (.venv/bin/activate or .venv/Scripts/activate).${NC}"
+    echo -e "${YELLOW} Attempting to proceed using python from the detected environment...${NC}"
+    # Try to use the venv python directly if it exists
+    if [ -f ".venv/Scripts/python.exe" ]; then
+        VENV_PY=".venv/Scripts/python.exe"
+    elif [ -f ".venv/bin/python" ]; then
+        VENV_PY=".venv/bin/python"
+    else
+        VENV_PY=""
+    fi
+
+    if [ -z "$VENV_PY" ]; then
+        echo -e "${RED} Could not find a Python interpreter inside .venv. You may need to create the venv manually or run this script inside WSL/Git Bash.${NC}"
+        exit 1
+    fi
+    # Use the venv's python to upgrade pip and install deps
+    "$VENV_PY" -m pip install -q --upgrade pip
+    "$VENV_PY" -m pip install -q fastapi uvicorn httpx python-dotenv
+fi
+
+# If we activated via source, use pip directly
+if command -v pip >/dev/null 2>&1; then
+    pip install -q --upgrade pip
+    pip install -q fastapi uvicorn httpx python-dotenv
+fi
 
 # Check if MCP server is already running
 if check_port 3333; then
